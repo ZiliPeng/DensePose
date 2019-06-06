@@ -78,4 +78,23 @@ If you use Densepose, please use the following BibTeX entry.
   }
 ```
 
+## 我的说明
 
+use Caffe2PY27 envs
+
+运行脚本：
+python tools/infer_simple.py \
+    --cfg configs/DensePoseKeyPointsMask_ResNet50_FPN_s1x-e2e.yaml \
+    --output-dir DensePoseData/infer_out/ziliInfer/ \
+    --image-ext jpg \
+    --wts https://dl.fbaipublicfiles.com/densepose/DensePoseKeyPointsMask_ResNet50_FPN_s1x-e2e.pkl \
+    DensePoseData/demo_data/test_jpg
+
+
+
+python tools/infer_simple.py \
+    --cfg configs/DensePose_ResNet101_FPN_s1x-e2e.yaml \
+    --output-dir DensePoseData/infer_out/val_res/ \
+    --image-ext jpg \
+    --wts https://dl.fbaipublicfiles.com/densepose/DensePose_ResNet101_FPN_s1x-e2e.pkl \
+    DensePoseData/demo_data/val
