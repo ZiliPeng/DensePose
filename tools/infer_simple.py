@@ -57,6 +57,7 @@ def parse_args():
         dest='weights',
         help='weights model file (/path/to/model_weights.pkl)',
         default=None,
+        # default='./models'
         type=str
     )
     parser.add_argument(

@@ -41,3 +41,4 @@ configs_old/*
 # My testing images and their results
 DensePoseData/demo_data/*
 DensePoseData/infer_out/*
+models/*

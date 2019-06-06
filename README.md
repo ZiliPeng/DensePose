@@ -84,6 +84,7 @@ use Caffe2PY27 envs
 
 运行脚本：
 ```
+带有关键点检测结果的：
 python tools/infer_simple.py \
     --cfg configs/DensePoseKeyPointsMask_ResNet50_FPN_s1x-e2e.yaml \
     --output-dir DensePoseData/infer_out/ziliInfer/ \
@@ -92,11 +93,11 @@ python tools/infer_simple.py \
     DensePoseData/demo_data/test_jpg
 
 
-
+输出简单结果：
 python tools/infer_simple.py \
     --cfg configs/DensePose_ResNet101_FPN_s1x-e2e.yaml \
-    --output-dir DensePoseData/infer_out/val_res/ \
+    --output-dir DensePoseData/infer_out/ziliInfer/ \
     --image-ext jpg \
     --wts https://dl.fbaipublicfiles.com/densepose/DensePose_ResNet101_FPN_s1x-e2e.pkl \
-    DensePoseData/demo_data/val
+    DensePoseData/demo_data/test_jpg
 ```
