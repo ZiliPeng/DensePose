@@ -36,3 +36,8 @@ configs_old/*
 
 
 .nfs*
+
+
+# My testing images and their results
+DensePoseData/demo_data/*
+DensePoseData/infer_out/*
