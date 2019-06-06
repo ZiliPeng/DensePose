@@ -83,6 +83,7 @@ If you use Densepose, please use the following BibTeX entry.
 use Caffe2PY27 envs
 
 运行脚本：
+```
 python tools/infer_simple.py \
     --cfg configs/DensePoseKeyPointsMask_ResNet50_FPN_s1x-e2e.yaml \
     --output-dir DensePoseData/infer_out/ziliInfer/ \
@@ -98,3 +99,4 @@ python tools/infer_simple.py \
     --image-ext jpg \
     --wts https://dl.fbaipublicfiles.com/densepose/DensePose_ResNet101_FPN_s1x-e2e.pkl \
     DensePoseData/demo_data/val
+```
