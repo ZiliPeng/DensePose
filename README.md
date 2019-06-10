@@ -83,6 +83,7 @@ If you use Densepose, please use the following BibTeX entry.
 use Caffe2PY27 envs
 
 注意
+
 1、先编译本项目下的detectron（否则对文件/detectron/utils/vis.py修改无效）：
 ```
 cd $DENSEPOSE && make
