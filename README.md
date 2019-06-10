@@ -103,12 +103,28 @@ python tools/infer_simple.py \
     --wts https://dl.fbaipublicfiles.com/densepose/DensePoseKeyPointsMask_ResNet50_FPN_s1x-e2e.pkl \
     DensePoseData/demo_data/test_jpg
 
+利用本地权重：
+python tools/infer_simple.py \
+    --cfg configs/DensePoseKeyPointsMask_ResNet50_FPN_s1x-e2e.yaml \
+    --output-dir DensePoseData/infer_out/ziliInfer/ \
+    --image-ext jpg \
+    --wts models/DensePoseKeyPointsMask_ResNet50_FPN_s1x-e2e.pkl \
+    DensePoseData/demo_data/test_jpg
+
 
 输出简单结果：
 python tools/infer_simple.py \
     --cfg configs/DensePose_ResNet101_FPN_s1x-e2e.yaml \
-    --output-dir DensePoseData/infer_out/ziliInfer/ \
+    --output-dir DensePoseData/infer_out/ziliInfer_simple/ \
     --image-ext jpg \
     --wts https://dl.fbaipublicfiles.com/densepose/DensePose_ResNet101_FPN_s1x-e2e.pkl \
+    DensePoseData/demo_data/test_jpg
+
+利用本地权重：
+python tools/infer_simple.py \
+    --cfg configs/DensePose_ResNet101_FPN_s1x-e2e.yaml \
+    --output-dir DensePoseData/infer_out/ziliInfer_simple/ \
+    --image-ext jpg \
+    --wts models/DensePose_ResNet101_FPN_s1x-e2e.pkl \
     DensePoseData/demo_data/test_jpg
 ```
