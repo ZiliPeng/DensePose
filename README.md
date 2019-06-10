@@ -84,7 +84,7 @@ use Caffe2PY27 envs
 
 注意
 
-1、先编译本项目下的detectron（否则对文件/detectron/utils/vis.py修改无效）：
+1、先编译本项目下的detectron（只要改动了detectron下的代码，都需要重新编译一次，否则对文件/detectron/utils/vis.py等的修改无效）：
 ```
 cd $DENSEPOSE && make
 ```

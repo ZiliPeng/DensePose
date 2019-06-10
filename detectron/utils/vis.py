@@ -386,7 +386,7 @@ def vis_one_image(
     ##
     inds = np.argsort(boxes[:,4])
     ##
-    for i, ind in enumerate(inds):
+    for i, ind in enumerate(inds,1):    # display all persons---zili
         entry = boxes[ind,:]
         if entry[4] > 0.65:
             entry=entry[0:4].astype(int)
@@ -415,6 +415,47 @@ def vis_one_image(
     ###
     ### DensePose Visualization Done!!
     #
-    output_name = os.path.basename(im_name) + '.' + ext
-    fig.savefig(os.path.join(output_dir, '{}'.format(output_name)), dpi=dpi)
+
+    # my code:---------------------start
+    plt.imshow( im[:,:,:] )
+    plt.contour( All_Coords[:,:,1]/256.,10, linewidths = 1 )
+    plt.contour( All_Coords[:,:,2]/256.,10, linewidths = 1 )
+    plt.contour( All_inds, linewidths = 2 )
+
+    IUVplusIMG_SaveName = os.path.basename(im_name).split('.')[0]+'_IUVplusIMG.png'
+    IUVplusBLK_SaveName = os.path.basename(im_name).split('.')[0]+'_IUVplusBLK.png'
+
+    plt.savefig(os.path.join(output_dir, '{}'.format(IUVplusIMG_SaveName)), dpi=dpi)
+
+
+    mycanvas = np.zeros((im.shape[0], im.shape[1], 3), dtype=np.uint8)
+    plt.imshow( mycanvas[:,:,:] )
+    plt.contour( All_Coords[:,:,1]/256.,10, linewidths = 1 )
+    plt.contour( All_Coords[:,:,2]/256.,10, linewidths = 1 )
+    plt.contour( All_inds, linewidths = 2 )
+    plt.savefig(os.path.join(output_dir, '{}'.format(IUVplusBLK_SaveName)), dpi=dpi)
+    # my code---------------------end
+
+    # # # my code2---------------------start
+    # # #draw frame and contours to canvas
+    # plt.contour( All_Coords[:,:,1]/256.,10, linewidths = 1 )
+    # plt.contour( All_Coords[:,:,2]/256.,10, linewidths = 1 )
+    # plt.contour( All_inds, linewidths = 2 )    
+    # plt.axis('off')
+    # fig.canvas.draw()
+    # # # convert canvas to image
+    # img = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+    # img  = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    # # # img is rgb, convert to opencv's default bgr
+    # img = cv2.cvtColor(img,cv2.COLOR_RGB2BGR)
+    # # # display image with opencv
+    # cv2.imshow("plot",img)
+    # cv2.waitKey(1)
+    # # IUVplusIMG_SaveName = os.path.basename(im_name).split('.')[0]+'_IUVplusIMG.png'
+    # # cv2.imwrite(os.path.join(output_dir, '{}'.format(IUVplusIMG_SaveName)),img, [int(cv2.IMWRITE_PNG_COMPRESSION), 0])
+    # # # my code2---------------------end
+
+
+    # output_name = os.path.basename(im_name) + '.' + ext
+    # fig.savefig(os.path.join(output_dir, '{}'.format(output_name)), dpi=dpi)
     plt.close('all')
