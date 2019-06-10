@@ -80,7 +80,7 @@ If you use Densepose, please use the following BibTeX entry.
 
 ## 我的说明
 
-use Caffe2PY27 envs
+source activate Caffe2PY27
 
 注意
 
