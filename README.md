@@ -82,7 +82,17 @@ If you use Densepose, please use the following BibTeX entry.
 
 use Caffe2PY27 envs
 
-运行脚本：
+注意
+1、先编译本项目下的detectron（否则对文件/detectron/utils/vis.py修改无效）：
+```
+cd $DENSEPOSE && make
+```
+2、获取DensePose所需的数据文件：
+```
+cd $DENSEPOSE/DensePoseData
+bash get_densepose_uv.sh
+```
+3、运行脚本：
 ```
 带有关键点检测结果的：
 python tools/infer_simple.py \
