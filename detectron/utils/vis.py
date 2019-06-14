@@ -28,6 +28,8 @@ envu.set_up_matplotlib()
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 
+from collections import defaultdict
+
 plt.rcParams['pdf.fonttype'] = 42  # For editing in Adobe Illustrator
 
 
@@ -278,6 +280,8 @@ def vis_one_image(
     sorted_inds = np.argsort(-areas)
 
     mask_color_id = 0
+    # KP_data=[]
+
     for i in sorted_inds:
         bbox = boxes[i, :4]
         score = boxes[i, -1]
@@ -329,6 +333,17 @@ def vis_one_image(
         # show keypoints
         if keypoints is not None and len(keypoints) > i:
             kps = keypoints[i]
+
+
+            # person = defaultdict(list)
+            # person['person_id']=[i]
+            # person['pose_keypoints_x']=kps[0].tolist()
+            # person['pose_keypoints_y']=kps[1].tolist()
+            # person['pose_keypoints_logit']=kps[2].tolist()
+            # person['pose_keypoints_prob']=(kps[3]).tolist()
+            # KP_data.append(person)
+
+
             plt.autoscale(False)
             for l in range(len(kp_lines)):
                 i1 = kp_lines[l][0]
@@ -386,9 +401,13 @@ def vis_one_image(
     ##
     inds = np.argsort(boxes[:,4])
     ##
+    KP_data=[]
+    mask_color_id = 0
+
     for i, ind in enumerate(inds,1):    # display all persons---zili
+
         entry = boxes[ind,:]
-        if entry[4] > 0.65:
+        if entry[4] > 0.9:
             entry=entry[0:4].astype(int)
             ####
             output = IUV_fields[ind]
@@ -401,6 +420,30 @@ def vis_one_image(
             All_inds_old = All_inds[ entry[1] : entry[1]+output.shape[1],entry[0]:entry[0]+output.shape[2]]
             All_inds_old[All_inds_old==0] = CurrentMask[All_inds_old==0]*i
             All_inds[ entry[1] : entry[1]+output.shape[1],entry[0]:entry[0]+output.shape[2]] = All_inds_old
+
+            print(ind)
+            if keypoints is not None and len(keypoints) > ind:
+                kps = keypoints[ind]
+                person = defaultdict(list)
+                person['person_id']=[i]
+                person['pose_keypoints_x']=kps[0].tolist()
+                person['pose_keypoints_y']=kps[1].tolist()
+                person['pose_keypoints_logit']=kps[2].tolist()
+                KP_data.append(person)
+            
+            if segms is not None and len(segms) > ind:
+                e = masks[:, :, ind]
+                person_ind=np.zeros([im.shape[0],im.shape[1]], dtype=np.uint8)
+                person_ind[e[:,:]!=0]=255
+
+                OUT_Mask_path=output_dir+os.path.basename(im_name).split('.')[0]
+                folder = os.path.exists(OUT_Mask_path)
+                if not folder:
+                    os.makedirs(OUT_Mask_path)
+                OUT_Mask_DIR=OUT_Mask_path+'/'+'person_'+str(ind)+'.png'
+                cv2.imwrite(OUT_Mask_DIR,person_ind)
+
+
     #
     All_Coords[:,:,1:3] = 255. * All_Coords[:,:,1:3]
     All_Coords[All_Coords>255] = 255.
@@ -462,4 +505,4 @@ def vis_one_image(
     # fig.savefig(os.path.join(output_dir, '{}'.format(output_name)), dpi=dpi)
     plt.close('all')
 
-    return IUV_inter, INDS_inter
+    return IUV_inter, INDS_inter,KP_data

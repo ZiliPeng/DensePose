@@ -31,6 +31,7 @@ import logging
 import os
 import sys
 import time
+import json
 
 from caffe2.python import workspace
 
@@ -1217,8 +1218,26 @@ def parse_args():
     return parser.parse_args()
 
 
-
-
+'''
+dp_I: The patch index that indicates which of the 24 surface patches the point is on. 
+Patches correspond to the body parts. 
+Some body parts are split into 2 patches:
+1, 2 = Torso, 
+3 = Right Hand, 
+4 = Left Hand, 
+5 = Left Foot, 
+6 = Right Foot, 
+7, 9 = Upper Leg Right, 
+8, 10 = Upper Leg Left, 
+11, 13 = Lower Leg Right, 
+12, 14 = Lower Leg Left, 
+15, 17 = Upper Arm Left, 
+16, 18 = Upper Arm Right, 
+19, 21 = Lower Arm Left, 
+20, 22 = Lower Arm Right, 
+23, 24 = Head
+'''
+#将自定的身体部分ID转换成IUV中包含前后半的身体部分，再重映射到身体部分ID(1~24)
 def pre_process_PartID(procI):
     
     PartIdarray=(16,20,15,19,2,9,13,10,14)
@@ -1281,7 +1300,7 @@ def main(args):
                 'rest (caches and auto-tuning need to warm up)'
             )
             
-        IUV_inter0, INDS_inter0=vis_utils.vis_one_image(
+        IUV_inter0, INDS_inter0,keypoints0=vis_utils.vis_one_image(
             im[:, :, ::-1],  # BGR -> RGB for visualization
             im_name,
             args.output_dir,
@@ -1295,6 +1314,12 @@ def main(args):
             thresh=0.7,
             kp_thresh=2
         )
+
+        # def vis_one_image_opencv(im, boxes, segms=None, keypoints=None, thresh=0.9, kp_thresh=2,
+        # show_box=False, dataset=None, show_class=False)
+        # def vis_one_image(im, im_name, output_dir, boxes, segms=None, keypoints=None, body_uv=None, thresh=0.9,
+        # kp_thresh=2, dpi=200, box_alpha=0.0, dataset=None, show_class=False,
+        # ext='pdf')
 
         # cv2.imwrite(args.output_dir+os.path.basename(im_name).split('.')[0]+'_IUV_inter.png',IUV_inter)
         # cv2.imwrite(args.output_dir+os.path.basename(im_name).split('.')[0]+'_INDS_inter.png',INDS_inter)
@@ -1313,6 +1338,43 @@ def main(args):
         # print(INDS.shape)
         # print(im.shape)
 
+        # print(np.array(keypoints0).shape)
+        # print(keypoints0)
+        if len(keypoints0)>0:
+            test_dict={'file_name': im_name, 'people': keypoints0}
+            # print(test_dict)
+            # print(type(test_dict))
+            json_str = json.dumps(test_dict)
+            # print(json_str)
+            # print(type(json_str))
+            with open(args.output_dir + os.path.basename(im_name).split('.')[0]+'_KP.json', 'w') as json_file:
+                    json_file.write(json_str)
+
+        imKP=IUV.copy()
+        for i in range(len(keypoints0)):
+            print(keypoints0[i]['person_id'])
+            aX=np.array(keypoints0[i]['pose_keypoints_x'])
+            aX=aX[:,np.newaxis]
+            aY=np.array(keypoints0[i]['pose_keypoints_y'])
+            aY=aY[:,np.newaxis]
+            aL=np.array(keypoints0[i]['pose_keypoints_logit'])
+            aL=aL[:,np.newaxis]
+            aXY=np.concatenate((aX,aY),axis=1)
+            aXYL=np.concatenate((aXY,aL),axis=1)
+            print(aXYL[:,2])
+            # print(len(aXYL))
+
+            for idt in range(len(aXYL)):
+                if aXYL[idt,2]> 1.8 and idt!=1 and idt!=2 and idt!=3 and idt!=4:
+                # if idt!=1 and idt!=2 and idt!=3 and idt!=4:
+                    cv2.circle(
+                        imKP, (int(aXYL[idt,0]),int(aXYL[idt,1])),
+                        radius=3, color=(200,10*(keypoints0[i]['person_id'][0]),100), thickness=-1, lineType=cv2.LINE_AA)
+
+        cv2.imwrite(args.output_dir + os.path.basename(im_name).split('.')[0]+'_KP_densepose.jpg',imKP)
+
+        
+
         if (IUV is None) or (INDS is None):
             print('can not find the IUV or INDS file!')
             continue
@@ -1320,7 +1382,7 @@ def main(args):
 
         ke=np.unique(INDS[:,:])
         #ke中非零的值即为检测到的人的索引值
-        # print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`the keys in INDS:',ke)
+        print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`the keys in INDS:',ke)
 
 
         # personI = np.zeros([im.shape[0],im.shape[1]])
@@ -1340,6 +1402,30 @@ def main(args):
         # INDS_interB=INDS_interA[0].tolist()
         # size_personK=INDS_interB.count(2)
         # print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!',size_personK)
+
+
+
+
+
+        # ageProto = "./models/age_gender_models/age_deploy.prototxt"
+        # ageModel = "./models/age_gender_models/age_net.caffemodel"
+
+        # genderProto = "./models/age_gender_models/gender_deploy.prototxt"
+        # genderModel = "./models/age_gender_models/gender_net.caffemodel"
+
+        # MODEL_MEAN_VALUES = (78.4263377603, 87.7689143744, 114.895847746)
+        # ageList = ['(0-2)', '(4-6)', '(8-12)', '(15-20)', '(25-32)', '(38-43)', '(48-53)', '(60-100)']
+        # genderList = ['Male', 'Female']
+
+        # ageNet = cv2.dnn.readNetFromCaffe(ageProto,ageModel )
+        # genderNet = cv2.dnn.readNetFromCaffe(genderProto,genderModel)
+
+
+
+
+
+
+
 
         All_persons=np.zeros([im.shape[0],im.shape[1]], dtype=np.uint8)
         All_persons[INDS[:,:]!=0]=255
@@ -1365,18 +1451,77 @@ def main(args):
             if size_personK/(size_IMG*1.0)<0.01:
                 print('the size of this person is too small!!') #不足图片1/100大小的人不处理
                 continue
+
             
+            
+            IUV_inter=copy.deepcopy(IUV)
+            IUV_inter[INDS!=ke[i+1]]=0
+            
+            
+            
+            # #添加性别、年龄检测，男性或低于12岁的儿童不处理
+            # #以下代码识别性别、年龄不准确，暂不添加此功能
+            # faceMask = np.zeros((im.shape[0], im.shape[1], 3), dtype=np.uint8)
+            # # x,y=np.where((IUV_inter[:,:,0]==23)|(IUV_inter[:,:,0]==24)) #左右半部分头部
+            # # faceMask[x,y]=IUV_inter[x,y]
+            # faceMask[(IUV_inter[:,:,0]==23)|(IUV_inter[:,:,0]==24)]=IUV_inter[(IUV_inter[:,:,0]==23)|(IUV_inter[:,:,0]==24)]
+            # personFace=faceMask[:,:,0]
+
+            # _, personFace_binary = cv2.threshold(personFace,0,255,cv2.THRESH_BINARY) 
+            # _, contours, _ = cv2.findContours(personFace_binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            # if len(contours)<1:
+            #     print('cannot find this face')
+            #     continue
+            # face_x,face_y,face_w,face_h = cv2.boundingRect(contours[0])
+            # # cv2.rectangle(contourKP_inter,(face_x,min(face_y+5,im.shape[0])),(face_x+face_w,min(face_y+5+int(face_h*0.88),im.shape[0])),(0,255,0),2)
+            
+
+            # face=contourKP_inter[min(face_y+5,im.shape[0]):min(face_y+5+int(face_h*0.88),im.shape[0]),face_x:face_x+face_w]
+            
+            # cv2.imwrite(args.output_dir+os.path.basename(im_name).split('.')[0]+'_face'+str(ke[i+1])+'.png',face)
+
+ 
+            # faceI = cv2.resize(face, (227, 227), interpolation=cv2.INTER_CUBIC)  
+
+            # blob = cv2.dnn.blobFromImage(faceI, 1.0, (227, 227), MODEL_MEAN_VALUES, swapRB=False)
+            # genderNet.setInput(blob)
+            # genderPreds = genderNet.forward()
+            # gender = genderList[genderPreds[0].argmax()]
+            # if gender==genderList[0]:
+            #     print("Gender : {}, conf = {:.3f}, without processing".format(gender, genderPreds[0].max()))
+            #     continue
+            # # print("Gender Output : {}".format(genderPreds))
+            # print("Gender : {}, conf = {:.3f}".format(gender, genderPreds[0].max()))
+
+            # ageNet.setInput(blob)
+            # agePreds = ageNet.forward()
+            # age = ageList[agePreds[0].argmax()]
+            # if age==ageList[0] or age==ageList[1] or age==ageList[2]:
+            #     print("Age : {}, conf = {:.3f}, without processing".format(age, agePreds[0].max()))
+            #     continue
+            # print("Age Output : {}".format(agePreds))
+            # print("Age : {}, conf = {:.3f}".format(age, agePreds[0].max()))
+
+            # label = "{},{}".format(gender, age)
+            # cv2.putText(contourKP_inter, label, (face_x,face_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
+            # cv2.imwrite(args.output_dir+os.path.basename(im_name).split('.')[0]+'_face.png',contourKP_inter)
+
+
+
+
+
+
+
+
             f1.writelines(['+++++++++++++++++++\n'])
             f1.writelines(['# of person:', str(i+1),'\n'])
 
             # PartIdarray=(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24)
             procI=0 #默认处理所有身体部分
             PartIdarray=pre_process_PartID(procI)
-            
 
 
-            IUV_inter=copy.deepcopy(IUV)
-            IUV_inter[INDS!=ke[i+1]]=0
+
 
             contourKP=processPart(contourKP_inter,All_persons, IUV_inter, PartIdarray,f1)  #默认处理所有检测到的符合条件的人
             contourKP_inter=contourKP
