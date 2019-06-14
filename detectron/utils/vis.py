@@ -412,6 +412,8 @@ def vis_one_image(
     cv2.imwrite(os.path.join(output_dir, '{}'.format(IUV_SaveName)), All_Coords )
     cv2.imwrite(os.path.join(output_dir, '{}'.format(INDS_SaveName)), All_inds )
     print('IUV written to: ' , os.path.join(output_dir, '{}'.format(IUV_SaveName)) )
+    IUV_inter=np.copy(All_Coords)
+    INDS_inter=np.copy(All_inds)
     ###
     ### DensePose Visualization Done!!
     #
@@ -459,3 +461,5 @@ def vis_one_image(
     # output_name = os.path.basename(im_name) + '.' + ext
     # fig.savefig(os.path.join(output_dir, '{}'.format(output_name)), dpi=dpi)
     plt.close('all')
+
+    return IUV_inter, INDS_inter
