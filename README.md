@@ -3,6 +3,8 @@
 
 _Rıza Alp Güler, Natalia Neverova, Iasonas Kokkinos_
 
+Forking from: https://github.com/facebookresearch/DensePose and make slightly modifications.
+
 [[`densepose.org`](https://densepose.org)] [[`arXiv`](https://arxiv.org/abs/1802.00434)] [[`BibTeX`](#CitingDensePose)]
 
 Dense human pose estimation aims at mapping all human pixels of an RGB image to the 3D surface of the human body. 
