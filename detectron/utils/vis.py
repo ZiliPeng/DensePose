@@ -440,7 +440,7 @@ def vis_one_image(
                 folder = os.path.exists(OUT_Mask_path)
                 if not folder:
                     os.makedirs(OUT_Mask_path)
-                OUT_Mask_DIR=OUT_Mask_path+'/'+'person_'+str(ind)+'.png'
+                OUT_Mask_DIR=OUT_Mask_path+'/'+'person_'+str(i)+'.png'
                 cv2.imwrite(OUT_Mask_DIR,person_ind)
 
 

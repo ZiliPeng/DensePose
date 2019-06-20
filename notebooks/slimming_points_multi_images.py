@@ -32,6 +32,7 @@ import os
 import sys
 import time
 import json
+import operator
 
 from caffe2.python import workspace
 
@@ -761,8 +762,8 @@ def drawContourKP2(im,contours,cX,cY,outer=True,PartId=2,maxAreaId=0,Front=True,
 
 
 
-
-def judgeFB(IUV,rePartId):
+#判断为rePartId身体部分的前视图（true）还是后视图（false）
+def judgeFB(IUV,rePartId,thr=0.8):
 
     Front = True
 
@@ -795,7 +796,7 @@ def judgeFB(IUV,rePartId):
     else:
         print('无法识别的身体ID代号！')
 
-    if sizeB>(sizeF+sizeB)*4/5.:
+    if sizeB>(sizeF+sizeB)*thr:
         Front = False
 
     # print('#####################################',rePartId,sizeB,sizeF,Front)
@@ -804,8 +805,600 @@ def judgeFB(IUV,rePartId):
     
     return Front
 
+#20190619新增函数
+def findContourKP(im,imName,aPerson,All_persons, IUV, detectedKeypoints, PartIdarray,KPfile):
+    #im原图，IUV某个人的IUV,PartIdarray某个人的身体部分ID
+    iTempKP=im.copy()
+    IUVTempKP=IUV.copy()
+
+    NPKernel = [[0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+                [0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0],
+                [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+                [0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0]]
+
+    myKernel=np.uint8(NPKernel)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(5, 5))
 
 
+
+
+
+
+  
+
+    onePerson = cv2.morphologyEx(aPerson,cv2.MORPH_CLOSE,kernel)
+    person_dilated = cv2.dilate(onePerson,kernel,iterations=1)
+    _, person_contours, _ = cv2.findContours(person_dilated,cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+
+    if len(person_contours)<1:
+        print('can not find any contours (before erode)!')
+        return
+    
+    # cntAreas=[]
+    maxArea=0
+    maxAreaId=0
+    for i in range(len(person_contours)):
+        # cntAreas.append(cv2.contourArea(contours[i]))
+        if cv2.contourArea(person_contours[i])>maxArea:
+            maxArea=cv2.contourArea(person_contours[i])
+            maxAreaId=i
+    
+    # max_index, max_cntArea = max(enumerate(cntAreas), key=operator.itemgetter(1))
+
+    # print('the ID of the largest area of a contour:',maxAreaId)
+    if maxArea<36:
+        print('too small in this area (before erode) to draw inner points!!! ')
+        return
+    cntPerson=person_contours[maxAreaId]
+
+
+
+
+
+
+
+
+    print(detectedKeypoints['person_id'])
+    aX=np.array(detectedKeypoints['pose_keypoints_x'])
+    aX=aX[:,np.newaxis]
+    aY=np.array(detectedKeypoints['pose_keypoints_y'])
+    aY=aY[:,np.newaxis]
+    aL=np.array(detectedKeypoints['pose_keypoints_logit'])
+    aL=aL[:,np.newaxis]
+    aXY=np.concatenate((aX,aY),axis=1)
+    aXYL=np.concatenate((aXY,aL),axis=1)
+    print(aXYL[:,2])
+    # print(len(aXYL))
+
+    
+
+    IUVtemp=IUV[:,:,0].reshape(1,-1) #转换成1行
+    judgeRePartId=2
+    Front=judgeFB(IUVtemp[0].tolist(),judgeRePartId,0.25)
+    # if Front==False:
+    #     continue
+    print(Front)
+
+    for index in range(len(PartIdarray)):
+        rePartId=PartIdarray[index]
+        # print(rePartId)
+
+        # if rePartId==9 or rePartId==13 or rePartId==10 or rePartId==14:
+        #     x,y=np.where((IUV[:,:,0]==rePartId)|(IUV[:,:,0]==rePartId-2))
+        # elif rePartId==19 or rePartId==20 or rePartId==15 or rePartId==16:
+        #     x,y=np.where((IUV[:,:,0]==rePartId)|(IUV[:,:,0]==rePartId+2))
+        # # elif rePartId==2:
+        # #     x,y=np.where((IUV[:,:,0]==rePartId)|(IUV[:,:,0]==rePartId-1)|(IUV[:,:,0]==3)|(IUV[:,:,0]==4)) #前后身躯+左右手掌
+        # else:
+        #     print('只通过胳膊、腿找瘦身点')
+        #     continue
+        
+        
+        partCanvas = np.zeros((im.shape[0], im.shape[1], 3), dtype=np.uint8)
+
+
+        if rePartId==15 or rePartId==16:
+            x,y=np.where((IUV[:,:,0]==1)|(IUV[:,:,0]==2)
+                            |(IUV[:,:,0]==rePartId)|(IUV[:,:,0]==rePartId+2)
+                            |(IUV[:,:,0]==3)|(IUV[:,:,0]==4)
+                            |(IUV[:,:,0]==rePartId+4)|(IUV[:,:,0]==rePartId+6))
+        elif rePartId==9 or rePartId==10:
+            x,y=np.where((IUV[:,:,0]==rePartId)|(IUV[:,:,0]==rePartId-2)
+                            |(IUV[:,:,0]==1)|(IUV[:,:,0]==2)
+                            |(IUV[:,:,0]==rePartId+2)|(IUV[:,:,0]==rePartId+4))                           
+        elif rePartId==13 or rePartId==14:
+            x,y=np.where((IUV[:,:,0]==rePartId)|(IUV[:,:,0]==rePartId-2)
+                            |(IUV[:,:,0]==rePartId-6)|(IUV[:,:,0]==rePartId-4))
+        elif rePartId==19 or rePartId==20:
+            x,y=np.where((IUV[:,:,0]==rePartId)|(IUV[:,:,0]==rePartId+2)
+                            |(IUV[:,:,0]==rePartId-2)|(IUV[:,:,0]==rePartId-4))
+
+        else:
+            print('暂时只处理躯干！')
+            continue
+        
+
+
+
+        partCanvas[x,y]=IUV[x,y]
+
+        personPartI=partCanvas[:,:,0]
+
+        _, person_binary = cv2.threshold(personPartI,0,255,cv2.THRESH_BINARY)  
+
+        person_binary_closed = cv2.morphologyEx(person_binary,cv2.MORPH_CLOSE,kernel)
+        dilated = cv2.dilate(person_binary_closed,kernel,iterations=1)
+        _, contours, hierarchy = cv2.findContours(dilated,cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+
+        if len(contours)<1:
+            print('can not find any contours (before erode)!')
+            continue
+        
+        # cntAreas=[]
+        maxArea=0
+        maxAreaId=0
+        for i in range(len(contours)):
+            # cntAreas.append(cv2.contourArea(contours[i]))
+            if cv2.contourArea(contours[i])>maxArea:
+                maxArea=cv2.contourArea(contours[i])
+                maxAreaId=i
+        
+        # max_index, max_cntArea = max(enumerate(cntAreas), key=operator.itemgetter(1))
+
+        # print('the ID of the largest area of a contour:',maxAreaId)
+        if maxArea<36:
+            print('too small in this area (before erode) to draw inner points!!! ')
+            continue
+        
+        
+        cntTemp=contours[maxAreaId]
+
+        idts=[0]
+        idss=[0]
+        # if rePartId==2:
+        #     idts=[5,6,11,12]
+        if rePartId==15:
+            idts=[5]
+            idss=[7]
+        elif rePartId==16:
+            idts=[6]
+            idss=[8]
+        elif rePartId==9:
+            idts=[12]
+            idss=[14]
+        elif rePartId==10:
+            idts=[11]
+            idss=[13]
+        elif rePartId==13:
+            idts=[14]
+            idss=[12]
+        elif rePartId==14:
+            idts=[13]
+            idss=[11]
+        elif rePartId==19:
+            idts=[7]
+            idss=[5]
+        elif rePartId==20:
+            idts=[8]
+            idss=[6]
+        # if rePartId==2:
+        #     idts=[5,6,11,12]
+        # elif rePartId==13 or rePartId==14:
+        #     idts=[14,13] #左右膝关节
+        # elif rePartId==19 or rePartId==20:
+        #     idts=[7,8] #左右肘关节
+
+
+    # keypoints = [
+    #     'nose',           #0
+    #     'left_eye',       #1
+    #     'right_eye',      #2
+    #     'left_ear',       #3
+    #     'right_ear',      #4
+    #     'left_shoulder',  #5
+    #     'right_shoulder', #6
+    #     'left_elbow',     #7
+    #     'right_elbow',    #8
+    #     'left_wrist',     #9
+    #     'right_wrist',    #10
+    #     'left_hip',       #11
+    #     'right_hip',      #12
+    #     'left_knee',      #13
+    #     'right_knee',     #14
+    #     'left_ankle',     #15
+    #     'right_ankle'     #16
+    # ]
+
+
+
+        
+        # # 轮廓的极点：
+        # mostPoints=[]
+        # leftmost = tuple(cntTemp[cntTemp[:,:,0].argmin()][0])
+        # rightmost = tuple(cntTemp[cntTemp[:,:,0].argmax()][0])
+        # topmost = tuple(cntTemp[cntTemp[:,:,1].argmin()][0])
+        # bottommost = tuple(cntTemp[cntTemp[:,:,1].argmax()][0])
+        # print("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",(leftmost,rightmost,topmost,bottommost))
+        # mostPoints.append(leftmost)
+        # mostPoints.append(rightmost)
+        # mostPoints.append(topmost)
+        # mostPoints.append(bottommost)
+        # for mostPi,mostPoint in enumerate(mostPoints):
+        #     cv2.circle(
+        #                 iTempKP, mostPoint,
+        #                 radius=2, color=(0,0,255), thickness=-1, lineType=cv2.LINE_AA)
+
+        # #cntPerson为此人的整体外轮廓
+        # hull = cv2.convexHull(cntTemp,returnPoints = False)
+        # defects = cv2.convexityDefects(cntTemp,hull)
+        # for i in range(defects.shape[0]):
+        #     s,e,f,d = defects[i,0]
+        #     start = tuple(cntTemp[s][0])
+        #     end = tuple(cntTemp[e][0])
+        #     far = tuple(cntTemp[f][0])
+        #     # cv2.line(iTempKP,start,end,[0,255,0],2)
+        #     # if cv2.pointPolygonTest(cntPerson,start,False)<=0:
+        #     #     cv2.circle(iTempKP,start,2,[0,255,0],-1)
+        #     # if cv2.pointPolygonTest(cntPerson,end,False)<=0:
+        #     #     cv2.circle(iTempKP,end,2,[0,255,0],-1)
+        #     if cv2.pointPolygonTest(cntPerson,far,False)<=0:
+        #         cv2.circle(iTempKP,far,2,[0,0,255],-1)
+
+
+        tempR=0
+        for _,idt in enumerate(idts):
+            print("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBb",aXYL[idt,2])
+
+            if aXYL[idt,2]> 1.23:
+                if (idt==5 or idt==6) and Front==False:
+                    confidShoulder=5
+                    if aXYL[6,2]>aXYL[5,2]:
+                        confidShoulder=6
+
+                    shortestPY=aXYL[confidShoulder,1]    #水平坐标
+                    shortestPX=aXYL[confidShoulder,0]    #垂直坐标
+                    tempR=2
+
+                elif (idt==11 or idt==12) and Front==False:
+                    confidHip=11
+                    if aXYL[12,2]>aXYL[11,2]:
+                        confidHip=12
+
+                    shortestPY=aXYL[confidHip,1]    #水平坐标
+                    shortestPX=aXYL[confidHip,0]    #垂直坐标
+                    tempR=2
+                
+                elif cv2.pointPolygonTest(cntTemp,(int(aXYL[idt,0]),int(aXYL[idt,1])),False)>=0:
+                    # retval=cv2.pointPolygonTest(cntTemp,(int(aXYL[idt,0]),int(aXYL[idt,1])),True)
+                    # print(type(retval))
+                    # print(len(cntTemp))
+                    dist=(cntTemp[:,0,1]-aXYL[idt,1])*(cntTemp[:,0,1]-aXYL[idt,1])+(cntTemp[:,0,0]-aXYL[idt,0])*(cntTemp[:,0,0]-aXYL[idt,0])
+                    print(len(dist))
+
+                    min_p2cIndex, min_p2cDist = min(enumerate(dist), key=operator.itemgetter(1))
+                    print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+                    print(min_p2cIndex, np.sqrt(min_p2cDist))
+
+                    shortestPY=cntTemp[min_p2cIndex,0,1]    #水平坐标
+                    shortestPX=cntTemp[min_p2cIndex,0,0]    #垂直坐标
+                    tempR=0
+                    # cv2.circle(
+                    #     iTempKP, (int(shortestPX),int(shortestPY)),
+                    #     radius=3+tempR, color=(0,255,0), thickness=-1, lineType=cv2.LINE_AA)
+                elif cv2.pointPolygonTest(cntTemp,(int(aXYL[idt,0]),int(aXYL[idt,1])),False)<0:
+                    print("这个点不在身体该身体部分的区域内：", (int(aXYL[idt,0]),int(aXYL[idt,1])))
+                    shortestPY=0    #水平坐标
+                    shortestPX=0    #垂直坐标
+
+            else:
+                print("未检测到这个关节点：",idt)
+                continue
+            
+            print(int(shortestPX),int(shortestPY))
+            if shortestPX!=0 or shortestPY!=0:
+                cv2.circle(
+                    iTempKP, (int(shortestPX),int(shortestPY)),
+                    radius=3+tempR, color=(0,255,0), thickness=-1, lineType=cv2.LINE_AA)
+            
+             
+
+        
+
+    # keypoints = [
+    #     'nose',           #0
+    #     'left_eye',       #1
+    #     'right_eye',      #2
+    #     'left_ear',       #3
+    #     'right_ear',      #4
+    #     'left_shoulder',  #5
+    #     'right_shoulder', #6
+    #     'left_elbow',     #7
+    #     'right_elbow',    #8
+    #     'left_wrist',     #9
+    #     'right_wrist',    #10
+    #     'left_hip',       #11
+    #     'right_hip',      #12
+    #     'left_knee',      #13
+    #     'right_knee',     #14
+    #     'left_ankle',     #15
+    #     'right_ankle'     #16
+    # ]
+
+    
+
+
+
+
+    for idt in range(len(aXYL)):
+        if aXYL[idt,2]> 1.8 and idt!=1 and idt!=2 and idt!=3 and idt!=4:
+        # if idt!=1 and idt!=2 and idt!=3 and idt!=4:
+            cv2.circle(
+                iTempKP, (int(aXYL[idt,0]),int(aXYL[idt,1])),
+                radius=1, color=(200,10*(detectedKeypoints['person_id'][0]),100), thickness=-1, lineType=cv2.LINE_AA)
+    
+    cv2.imwrite(imName+'_iTempKP.png',iTempKP)
+    
+    return iTempKP
+
+
+
+#20190618新增函数
+def findOutcontourKP(im,imName,All_persons, IUV, detectedKeypoints, PartIdarray,KPfile):
+    #im原图，IUV某个人的IUV,PartIdarray某个人的身体部分ID
+    iTempKP=im.copy()
+    IUVTempKP=IUV.copy()
+
+    NPKernel = [[0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+                [0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0],
+                [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+                [0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0]]
+
+    myKernel=np.uint8(NPKernel)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(11, 11))
+
+
+    print(detectedKeypoints['person_id'])
+    aX=np.array(detectedKeypoints['pose_keypoints_x'])
+    aX=aX[:,np.newaxis]
+    aY=np.array(detectedKeypoints['pose_keypoints_y'])
+    aY=aY[:,np.newaxis]
+    aL=np.array(detectedKeypoints['pose_keypoints_logit'])
+    aL=aL[:,np.newaxis]
+    aXY=np.concatenate((aX,aY),axis=1)
+    aXYL=np.concatenate((aXY,aL),axis=1)
+    print(aXYL[:,2])
+    # print(len(aXYL))
+
+    
+
+    IUVtemp=IUV[:,:,0].reshape(1,-1) #转换成1行
+    judgeRePartId=2
+    Front=judgeFB(IUVtemp[0].tolist(),judgeRePartId,0.25)
+    # if Front==False:
+    #     continue
+    print(Front)
+
+    for index in range(len(PartIdarray)):
+        rePartId=PartIdarray[index]
+        # print(rePartId)
+
+        # if rePartId==9 or rePartId==13 or rePartId==10 or rePartId==14:
+        #     x,y=np.where((IUV[:,:,0]==rePartId)|(IUV[:,:,0]==rePartId-2))
+        # elif rePartId==19 or rePartId==20 or rePartId==15 or rePartId==16:
+        #     x,y=np.where((IUV[:,:,0]==rePartId)|(IUV[:,:,0]==rePartId+2))
+        # elif rePartId==2:
+        #     x,y=np.where((IUV[:,:,0]==rePartId)|(IUV[:,:,0]==rePartId-1)|(IUV[:,:,0]==3)|(IUV[:,:,0]==4)) #前后身躯+左右手掌
+        # else:
+        #     print('can not recognize the PartID!')
+        #     continue
+        
+        
+        partCanvas = np.zeros((im.shape[0], im.shape[1], 3), dtype=np.uint8)
+
+        # if rePartId==2:
+        #     x,y=np.where((IUV[:,:,0]==rePartId)|(IUV[:,:,0]==rePartId-1)
+        #                     |(IUV[:,:,0]==15)|(IUV[:,:,0]==16)|(IUV[:,:,0]==17)|(IUV[:,:,0]==18)
+        #                     |(IUV[:,:,0]==3)|(IUV[:,:,0]==4)
+        #                     |(IUV[:,:,0]==7)|(IUV[:,:,0]==8)|(IUV[:,:,0]==9)|(IUV[:,:,0]==10)
+        #                     |(IUV[:,:,0]==19)|(IUV[:,:,0]==20)|(IUV[:,:,0]==21)|(IUV[:,:,0]==22))
+        if rePartId==15 or rePartId==16:
+            x,y=np.where((IUV[:,:,0]==1)|(IUV[:,:,0]==2)
+                            |(IUV[:,:,0]==rePartId)|(IUV[:,:,0]==rePartId+2)
+                            |(IUV[:,:,0]==3)|(IUV[:,:,0]==4)
+                            |(IUV[:,:,0]==rePartId+4)|(IUV[:,:,0]==rePartId+6))
+        elif rePartId==9 or rePartId==10:
+            x,y=np.where((IUV[:,:,0]==rePartId)|(IUV[:,:,0]==rePartId-2)
+                            |(IUV[:,:,0]==1)|(IUV[:,:,0]==2)
+                            |(IUV[:,:,0]==rePartId+2)|(IUV[:,:,0]==rePartId+4))                           
+        elif rePartId==13 or rePartId==14:
+            x,y=np.where((IUV[:,:,0]==rePartId)|(IUV[:,:,0]==rePartId-2)
+                            |(IUV[:,:,0]==rePartId-6)|(IUV[:,:,0]==rePartId-4))
+        elif rePartId==19 or rePartId==20:
+            x,y=np.where((IUV[:,:,0]==rePartId)|(IUV[:,:,0]==rePartId+2)
+                            |(IUV[:,:,0]==rePartId-2)|(IUV[:,:,0]==rePartId-4))
+
+        else:
+            print('暂时只处理躯干！')
+            continue
+        
+
+
+
+        partCanvas[x,y]=IUV[x,y]
+
+        personPartI=partCanvas[:,:,0]
+
+        _, person_binary = cv2.threshold(personPartI,0,255,cv2.THRESH_BINARY)  
+
+        person_binary_closed = cv2.morphologyEx(person_binary,cv2.MORPH_CLOSE,kernel)
+        dilated = cv2.dilate(person_binary_closed,kernel,iterations=1)
+        _, contours, hierarchy = cv2.findContours(dilated,cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+
+        if len(contours)<1:
+            print('can not find any contours (before erode)!')
+            continue
+        
+        # cntAreas=[]
+        maxArea=0
+        maxAreaId=0
+        for i in range(len(contours)):
+            # cntAreas.append(cv2.contourArea(contours[i]))
+            if cv2.contourArea(contours[i])>maxArea:
+                maxArea=cv2.contourArea(contours[i])
+                maxAreaId=i
+        
+        # max_index, max_cntArea = max(enumerate(cntAreas), key=operator.itemgetter(1))
+
+        # print('the ID of the largest area of a contour:',maxAreaId)
+        if maxArea<36:
+            print('too small in this area (before erode) to draw inner points!!! ')
+            continue
+        
+        
+        cntTemp=contours[maxAreaId]
+
+        idts=[0]
+        # if rePartId==2:
+        #     idts=[5,6,11,12]
+        if rePartId==15:
+            idts=[5]
+        elif rePartId==16:
+            idts=[6]
+        elif rePartId==9:
+            idts=[12]
+        elif rePartId==10:
+            idts=[11]
+        elif rePartId==13:
+            idts=[14]
+        elif rePartId==14:
+            idts=[13]
+        elif rePartId==19:
+            idts=[7]
+        elif rePartId==20:
+            idts=[8]
+        # if rePartId==2:
+        #     idts=[5,6,11,12]
+        # elif rePartId==13 or rePartId==14:
+        #     idts=[14,13] #左右膝关节
+        # elif rePartId==19 or rePartId==20:
+        #     idts=[7,8] #左右肘关节
+        
+
+        # 轮廓的极点：
+        # leftmost = tuple(cnt[cnt[:,:,0].argmin()][0])
+        # rightmost = tuple(cnt[cnt[:,:,0].argmax()][0])
+        # topmost = tuple(cnt[cnt[:,:,1].argmin()][0])
+        # bottommost = tuple(cnt[cnt[:,:,1].argmax()][0]
+
+        tempR=0
+        for _,idt in enumerate(idts):
+            print("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBb",aXYL[idt,2])
+
+            if aXYL[idt,2]> 1.23:
+                if (idt==5 or idt==6) and Front==False:
+                    confidShoulder=5
+                    if aXYL[6,2]>aXYL[5,2]:
+                        confidShoulder=6
+
+                    shortestPY=aXYL[confidShoulder,1]    #水平坐标
+                    shortestPX=aXYL[confidShoulder,0]    #垂直坐标
+                    tempR=2
+
+                elif (idt==11 or idt==12) and Front==False:
+                    confidHip=11
+                    if aXYL[12,2]>aXYL[11,2]:
+                        confidHip=12
+
+                    shortestPY=aXYL[confidHip,1]    #水平坐标
+                    shortestPX=aXYL[confidHip,0]    #垂直坐标
+                    tempR=2
+                
+                elif cv2.pointPolygonTest(cntTemp,(int(aXYL[idt,0]),int(aXYL[idt,1])),False)>=0:
+                    # retval=cv2.pointPolygonTest(cntTemp,(int(aXYL[idt,0]),int(aXYL[idt,1])),True)
+                    # print(type(retval))
+                    # print(len(cntTemp))
+                    dist=(cntTemp[:,0,1]-aXYL[idt,1])*(cntTemp[:,0,1]-aXYL[idt,1])+(cntTemp[:,0,0]-aXYL[idt,0])*(cntTemp[:,0,0]-aXYL[idt,0])
+                    print(len(dist))
+
+                    min_p2cIndex, min_p2cDist = min(enumerate(dist), key=operator.itemgetter(1))
+                    print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+                    print(min_p2cIndex, np.sqrt(min_p2cDist))
+
+                    shortestPY=cntTemp[min_p2cIndex,0,1]    #水平坐标
+                    shortestPX=cntTemp[min_p2cIndex,0,0]    #垂直坐标
+                    tempR=0
+                    # cv2.circle(
+                    #     iTempKP, (int(shortestPX),int(shortestPY)),
+                    #     radius=3+tempR, color=(0,255,0), thickness=-1, lineType=cv2.LINE_AA)
+                elif cv2.pointPolygonTest(cntTemp,(int(aXYL[idt,0]),int(aXYL[idt,1])),False)<0:
+                    print("这个点不在身体该身体部分的区域内：", (int(aXYL[idt,0]),int(aXYL[idt,1])))
+                    shortestPY=0    #水平坐标
+                    shortestPX=0    #垂直坐标
+
+            else:
+                print("未检测到这个关节点：",idt)
+                continue
+            
+            print(int(shortestPX),int(shortestPY))
+            if shortestPX!=0 or shortestPY!=0:
+                cv2.circle(
+                    iTempKP, (int(shortestPX),int(shortestPY)),
+                    radius=3+tempR, color=(0,255,0), thickness=-1, lineType=cv2.LINE_AA)
+
+        
+
+    # keypoints = [
+    #     'nose',
+    #     'left_eye',
+    #     'right_eye',
+    #     'left_ear',
+    #     'right_ear',
+    #     'left_shoulder',
+    #     'right_shoulder',
+    #     'left_elbow',
+    #     'right_elbow',
+    #     'left_wrist',
+    #     'right_wrist',
+    #     'left_hip',
+    #     'right_hip',
+    #     'left_knee',
+    #     'right_knee',
+    #     'left_ankle',
+    #     'right_ankle'
+    # ]
+
+    
+
+
+
+
+    for idt in range(len(aXYL)):
+        if aXYL[idt,2]> 1.8 and idt!=1 and idt!=2 and idt!=3 and idt!=4:
+        # if idt!=1 and idt!=2 and idt!=3 and idt!=4:
+            cv2.circle(
+                iTempKP, (int(aXYL[idt,0]),int(aXYL[idt,1])),
+                radius=3, color=(200,10*(detectedKeypoints['person_id'][0]),100), thickness=-1, lineType=cv2.LINE_AA)
+    
+    cv2.imwrite(imName+'_iTempKP.png',iTempKP)
+    
+    return iTempKP
 
 
 
@@ -906,6 +1499,8 @@ def processPart(im,All_persons, IUV, PartIdarray,KPfile):
             else:
                 print('can not recognize the PartID!')
                 continue
+
+            
             
 
             # plt.scatter(y,x,22, np.array(x))
@@ -1393,6 +1988,7 @@ def main(args):
             continue
         contourKP_inter=im.copy()
         contourKP=im.copy()
+        myKPtemp=im.copy()
 
 
         size_IMG=im.shape[1]*im.shape[0]
@@ -1434,11 +2030,18 @@ def main(args):
         KPoint_file='DensePoseData/infer_out/KPoints.txt'
         f1 = open(KPoint_file, 'a')
         f1.writelines(['File:',os.path.basename(im_name),',',str(im.shape[1]),'X',str(im.shape[0]),'\n'])
+        
+        OUT_Mask_path=args.output_dir+os.path.basename(im_name).split('.')[0]
+        
+        
 
         for i in range(ke.size-1):
             # print('re_personID:',ke[i+1]) #从第一个人开始处理
             # personI[INDS==ke[i]]=i+1
-
+            aPerson=np.zeros([im.shape[0],im.shape[1]], dtype=np.uint8)
+            aPerson[INDS[:,:]==ke[i+1]]=255
+            OUT_Mask_DIR=OUT_Mask_path+'/'+'INDS_person_'+str(ke[i+1])+'.png'
+            cv2.imwrite(OUT_Mask_DIR,aPerson)
 
             INDS_inter=copy.deepcopy(INDS[:,:])
             INDS_interA=INDS_inter.reshape(1,-1)
@@ -1520,8 +2123,10 @@ def main(args):
             procI=0 #默认处理所有身体部分
             PartIdarray=pre_process_PartID(procI)
 
-
-
+            iTempKP_name=args.output_dir+os.path.basename(im_name).split('.')[0]
+            
+            myKPtemp=findContourKP(myKPtemp,iTempKP_name,aPerson,All_persons, IUV_inter,keypoints0[i], PartIdarray,f1)
+            # myKPtemp=findOutcontourKP(myKPtemp,iTempKP_name,All_persons, IUV_inter,keypoints0[i], PartIdarray,f1)
 
             contourKP=processPart(contourKP_inter,All_persons, IUV_inter, PartIdarray,f1)  #默认处理所有检测到的符合条件的人
             contourKP_inter=contourKP
